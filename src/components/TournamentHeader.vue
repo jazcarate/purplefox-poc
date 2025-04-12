@@ -1,23 +1,37 @@
 <script setup lang="ts">
 // Header component for tournament view
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+const tournamentId = route.params.id;
 </script>
 
 <template>
-  <header class="flex items-center w-full text-white bg-green-800">
+  <header
+    class="fixed top-0 w-full flex items-center h-12 px-4 bg-green-800 custom-bg-green-800 text-white custom-text-white">
     <button class="mr-2">
       <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
         width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
         <path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path>
       </svg>
     </button>
-    <div class="flex-1">
-      <div class="flex flex-1 px-2 select-none">
+
+    <!-- Left section with timer -->
+    <div class="flex-1 flex items-center">
+      <div class="flex px-2 select-none">
         <div class="mr-1 cursor-pointer font-medium"> (R7) </div>
         <div class="cursor-pointer font-medium">50:00</div>
       </div>
     </div>
-    <div class="flex space-x-3">
-      <button class="text-white hover:text-green-200">
+
+    <!-- Tournament ID centered -->
+    <div class="absolute left-1/2 transform -translate-x-1/2 font-bold">
+      Tournament: {{ tournamentId }}
+    </div>
+
+    <!-- Right section with icons -->
+    <div class="flex-1 flex justify-end space-x-3">
+      <button class="text-white custom-text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
           <path fill="currentColor"
@@ -25,7 +39,7 @@
           </path>
         </svg>
       </button>
-      <button class="text-white hover:text-green-200">
+      <button class="text-white custom-text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
           <path fill="currentColor"
@@ -33,7 +47,7 @@
           </path>
         </svg>
       </button>
-      <button class="text-white hover:text-green-200">
+      <button class="text-white custom-text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
           <path fill="currentColor"

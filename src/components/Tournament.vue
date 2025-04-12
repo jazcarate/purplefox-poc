@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import Table from './Table.vue';
 import TournamentHeader from './TournamentHeader.vue';
 import { supabase, type TableStatus } from '../lib/supabase';
@@ -12,6 +12,38 @@ const props = defineProps<Props>();
 const tables = ref<TableStatus[]>([]);
 const loading = ref(true);
 const error = ref('');
+
+// Complete table list including missing tables with "unknown" status
+const completeTableList = computed(() => {
+  if (tables.value.length === 0) return [];
+
+  // Find the min and max table numbers
+  const tableNumbers = tables.value.map(t => t.tableNumber);
+  const minTable = Math.min(...tableNumbers);
+  const maxTable = Math.max(...tableNumbers);
+
+  // Create a complete array with all table numbers in the range
+  const result: TableStatus[] = [];
+
+  for (let i = minTable; i <= maxTable; i++) {
+    // Find the table in our data if it exists
+    const existingTable = tables.value.find(t => t.tableNumber === i);
+
+    if (existingTable) {
+      // Use existing table data
+      result.push(existingTable);
+    } else {
+      // Create a placeholder for missing table
+      result.push({
+        tableNumber: i,
+        tournamentId: props.id,
+        status: 'unknown'
+      });
+    }
+  }
+
+  return result;
+});
 
 async function fetchTables() {
   try {
@@ -61,7 +93,7 @@ watch(() => props.id, fetchTables);
     </div>
 
     <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      <Table v-for="table in tables" :key="table.tableNumber" :number="table.tableNumber"
+      <Table v-for="table in completeTableList" :key="table.tableNumber" :number="table.tableNumber"
         :initial-status="table.status" />
     </div>
   </div>
