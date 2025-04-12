@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Tournament from './components/Tournament.vue';
+// Main app component
 </script>
 
 <template>
-  <Tournament />
+  <router-view />
 </template>
