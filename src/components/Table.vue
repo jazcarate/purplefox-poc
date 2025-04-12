@@ -7,10 +7,9 @@ interface Props {
 
 const props = defineProps<Props>();
 
-// States: white (unknown) -> red (Playing) -> yellow (Covered) -> green (Done) -> back to red
-type SquareState = 'unknown' | 'playing' | 'covered' | 'done';
+type TableState = 'unknown' | 'playing' | 'covered' | 'done';
 
-const state = ref<SquareState>('unknown');
+const state = ref<TableState>('unknown');
 
 function cycleState() {
   switch (state.value) {
@@ -27,6 +26,7 @@ function cycleState() {
       state.value = 'playing';
       break;
   }
+  console.log(props.number, state.value);
 }
 
 function getBackgroundColor(): string {
@@ -40,15 +40,15 @@ function getBackgroundColor(): string {
         return 'bg-green-500';
     }
   }
-  return props.isSelected ? 'bg-orange-400' : 'bg-white';
+  return 'bg-white';
 }
 </script>
 
 <template>
-  <div class="flex p-2 rounded cursor-pointer select-none flex-col items-center justify-center bg-white text-black"
+  <div class="flex p-2 rounded cursor-pointer select-none flex-col items-center justify-center text-black"
     :class="getBackgroundColor()" @click="cycleState">
     <span class="text-lg font-medium">
-      {{ number }}
+      {{ props.number }}
     </span>
   </div>
 </template>
