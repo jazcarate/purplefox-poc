@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  background-color: rgb(235 233 237);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  color: rgb(31 28 34);
+  font-family: Roboto Mono, sans-serif;
+}
