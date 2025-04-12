@@ -7,14 +7,13 @@ const tournamentId = route.params.id;
 </script>
 
 <template>
-  <header
-    class="fixed top-0 w-full flex items-center h-12 px-4 bg-green-800 custom-bg-green-800 text-white custom-text-white">
-    <button class="mr-2">
+  <header class="fixed top-0 w-full flex items-center h-12 px-4 bg-green-800 text-white">
+    <a href="/" class="mr-2 hover:opacity-80">
       <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
         width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
         <path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path>
       </svg>
-    </button>
+    </a>
 
     <!-- Left section with timer -->
     <div class="flex-1 flex items-center">
@@ -31,7 +30,7 @@ const tournamentId = route.params.id;
 
     <!-- Right section with icons -->
     <div class="flex-1 flex justify-end space-x-3">
-      <button class="text-white custom-text-white hover:opacity-80">
+      <button class="text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
           <path fill="currentColor"
@@ -39,7 +38,7 @@ const tournamentId = route.params.id;
           </path>
         </svg>
       </button>
-      <button class="text-white custom-text-white hover:opacity-80">
+      <button class="text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
           <path fill="currentColor"
@@ -47,7 +46,7 @@ const tournamentId = route.params.id;
           </path>
         </svg>
       </button>
-      <button class="text-white custom-text-white hover:opacity-80">
+      <button class="text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
           <path fill="currentColor"

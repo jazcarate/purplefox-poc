@@ -80,10 +80,6 @@ watch(() => props.id, fetchTables);
   <TournamentHeader />
 
   <div class="z-10 px-6 py-8 mt-14 max-w-6xl mx-auto">
-    <div class="mb-4">
-      <h1 class="text-xl font-semibold">Tournament: {{ id }}</h1>
-    </div>
-
     <div v-if="loading" class="flex justify-center py-8">
       <p>Loading tables...</p>
     </div>
