@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import Table from './Table.vue';
 import TournamentHeader from './TournamentHeader.vue';
 import { supabase, type TableStatus } from '../lib/supabase';
@@ -12,6 +12,7 @@ const props = defineProps<Props>();
 const tables = ref<TableStatus[]>([]);
 const loading = ref(true);
 const error = ref('');
+const subscription = ref<any>(null);
 
 // Complete table list including missing tables with "unknown" status
 const completeTableList = computed(() => {
@@ -71,9 +72,71 @@ async function fetchTables() {
   }
 }
 
+function setupRealtimeSubscription() {
+  // Clean up previous subscription if exists
+  if (subscription.value) {
+    supabase.removeChannel(subscription.value);
+  }
+
+  // Subscribe to changes on the table_status table for this tournament
+  subscription.value = supabase
+    .channel('table_status_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+        schema: 'public',
+        table: 'table_status',
+        filter: `tournamentId=eq.${props.id}`,
+      },
+      (payload) => {
+        console.log('Real-time update received:', payload);
+
+        // Handle different events
+        if (payload.eventType === 'INSERT') {
+          // Add new table
+          tables.value.push(payload.new as TableStatus);
+        }
+        else if (payload.eventType === 'UPDATE') {
+          // Update existing table
+          const index = tables.value.findIndex(
+            (t) => t.tableNumber === payload.new.tableNumber && t.tournamentId === payload.new.tournamentId
+          );
+
+          if (index !== -1) {
+            tables.value[index] = payload.new as TableStatus;
+          }
+        }
+        else if (payload.eventType === 'DELETE') {
+          // Remove table
+          tables.value = tables.value.filter(
+            (t) => !(t.tableNumber === payload.old.tableNumber && t.tournamentId === payload.old.tournamentId)
+          );
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('Realtime subscription status:', status);
+    });
+}
+
 // Fetch tables when component is mounted or when ID changes
-onMounted(fetchTables);
-watch(() => props.id, fetchTables);
+onMounted(() => {
+  fetchTables();
+  setupRealtimeSubscription();
+});
+
+watch(() => props.id, () => {
+  fetchTables();
+  setupRealtimeSubscription();
+});
+
+// Clean up subscription when component is unmounted
+onUnmounted(() => {
+  if (subscription.value) {
+    supabase.removeChannel(subscription.value);
+  }
+});
 </script>
 
 <template>
@@ -88,9 +151,11 @@ watch(() => props.id, fetchTables);
       {{ error }}
     </div>
 
-    <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      <Table v-for="table in completeTableList" :key="table.tableNumber" :number="table.tableNumber"
-        :initial-status="table.status" />
+    <div v-else>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <Table v-for="table in completeTableList" :key="table.tableNumber" :number="table.tableNumber"
+          :initial-status="table.status" :tournament-id="props.id" />
+      </div>
     </div>
   </div>
 </template>
