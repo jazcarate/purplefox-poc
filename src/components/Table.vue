@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { supabase } from '../lib/supabase';
+import { type TableStatusStatus } from '../lib/supabase';
 
 interface Props {
+  tournamentId: string;
   number: number;
-  initialStatus?: 'unknown' | 'playing' | 'covered' | 'done';
-  tournamentId?: string;
+  initialStatus: TableStatusStatus;
 }
 
 const props = defineProps<Props>();
 
-// States: white (unknown) -> red (Playing) -> yellow (Covered) -> green (Done) -> back to red
-type SquareState = 'unknown' | 'playing' | 'covered' | 'done';
-
-// Initialize with the provided status or 'unknown' by default
-const state = ref<SquareState>(props.initialStatus || 'unknown');
+const state = ref<TableStatusStatus>(props.initialStatus);
 const isUpdating = ref(false);
 const isPulsing = ref(false);
 const lastLocalUpdate = ref<number>(Date.now());
@@ -24,7 +21,7 @@ async function cycleState() {
   if (!props.tournamentId || isUpdating.value) return;
 
   const expectedCurrentState = state.value;
-  let newState: SquareState;
+  let newState: TableStatusStatus;
 
   switch (state.value) {
     case 'unknown':
@@ -83,7 +80,7 @@ async function cycleState() {
 
     if (checkError) throw checkError;
 
-    const currentState = checkData.status as SquareState;
+    const currentState = checkData.status as TableStatusStatus;
 
     // If current state is already our target state, we're good
     if (currentState === newState) {
@@ -148,12 +145,6 @@ function triggerPulse() {
   }, 500);
 }
 
-// Set initial state based on props
-onMounted(() => {
-  if (props.initialStatus) {
-    state.value = props.initialStatus;
-  }
-});
 </script>
 
 <template>

@@ -1,29 +1,11 @@
 <script setup lang="ts">
-// Header component for tournament view
-import { ref } from 'vue';
-import { useRoute } from 'vue-router';
-
 interface Props {
-  isConnected?: boolean;
+  id: string;
+  isConnected: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  isConnected: false
-});
+const props = defineProps<Props>();
 
-const ignoreWebsockets = ref(false);
-
-const emit = defineEmits<{
-  (e: 'toggleDebug', value: boolean): void
-}>();
-
-function toggleDebugMode() {
-  ignoreWebsockets.value = !ignoreWebsockets.value;
-  emit('toggleDebug', ignoreWebsockets.value);
-}
-
-const route = useRoute();
-const tournamentId = route.params.id;
 </script>
 
 <template>
@@ -45,7 +27,7 @@ const tournamentId = route.params.id;
 
     <!-- Tournament ID centered -->
     <div class="absolute left-1/2 transform -translate-x-1/2 font-bold">
-      Tournament: {{ tournamentId }}
+      Tournament: {{ id }}
     </div>
 
     <!-- Right section with icons -->
@@ -74,17 +56,6 @@ const tournamentId = route.params.id;
           </path>
         </svg>
       </button>
-
-      <!-- Debug mode checkbox -->
-      <div class="flex items-center mr-2">
-        <label class="inline-flex items-center cursor-pointer">
-          <input type="checkbox" v-model="ignoreWebsockets" @change="toggleDebugMode" class="sr-only peer">
-          <div
-            class="relative w-9 h-5 bg-gray-600 peer-checked:bg-purple rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all">
-          </div>
-          <span class="ml-2 text-xs text-white">Debug</span>
-        </label>
-      </div>
 
       <!-- Connection status pill -->
       <div class="flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200"

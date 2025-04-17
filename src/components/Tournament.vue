@@ -9,12 +9,13 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const tables = ref<TableStatus[]>([]);
 const loading = ref(true);
 const error = ref('');
 const subscription = ref<any>(null);
 const isConnected = ref(false);
 const ignoreWebsockets = ref(false);
+
+const tables = ref<TableStatus[]>([]);
 
 async function fetchTables() {
   try {
@@ -49,13 +50,12 @@ function setupRealtimeSubscription() {
     isConnected.value = false;
   }
 
-  // Subscribe to changes on the table_status table for this tournament
   subscription.value = supabase
     .channel('table_status_changes')
     .on(
       'postgres_changes',
       {
-        event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+        event: 'UPDATE',
         schema: 'public',
         table: 'table_status',
         filter: `tournamentId=eq.${props.id}`,
@@ -69,26 +69,19 @@ function setupRealtimeSubscription() {
           return;
         }
 
-        // Handle different events
-        if (payload.eventType === 'INSERT') {
-          // Add new table
-          tables.value.push(payload.new as TableStatus);
-        }
-        else if (payload.eventType === 'UPDATE') {
-          // Update existing table
+        if (payload.eventType === 'UPDATE') {
           const index = tables.value.findIndex(
-            (t) => t.tableNumber === payload.new.tableNumber && t.tournamentId === payload.new.tournamentId
+            ({ tableNumber, tournamentId }) => tableNumber === payload.new.tableNumber &&
+              tournamentId === payload.new.tournamentId
           );
 
           if (index !== -1) {
             tables.value[index] = payload.new as TableStatus;
+          } else {
+            console.error('Table not found:', payload.new);
           }
-        }
-        else if (payload.eventType === 'DELETE') {
-          // Remove table
-          tables.value = tables.value.filter(
-            (t) => !(t.tableNumber === payload.old.tableNumber && t.tournamentId === payload.old.tournamentId)
-          );
+        } else {
+          console.error('Unknown event type:', payload.eventType);
         }
       }
     )
@@ -109,7 +102,6 @@ watch(() => props.id, () => {
   setupRealtimeSubscription();
 });
 
-// Clean up subscription when component is unmounted
 onUnmounted(() => {
   if (subscription.value) {
     supabase.removeChannel(subscription.value);
@@ -119,7 +111,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <TournamentHeader :is-connected="isConnected" />
+  <TournamentHeader :id="id" :is-connected="isConnected" />
 
   <div class="z-10 px-6 py-8 mt-14 max-w-6xl mx-auto">
 
@@ -145,7 +137,7 @@ onUnmounted(() => {
     <div v-else>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <Table v-for="table in tables" :key="table.tableNumber" :number="table.tableNumber"
-          :initial-status="table.status" :tournament-id="props.id" />
+          :initial-status="table.status" :tournament-id="id" />
       </div>
     </div>
   </div>
