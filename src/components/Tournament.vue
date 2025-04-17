@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 import Table from './Table.vue';
 import TournamentHeader from './TournamentHeader.vue';
 import { supabase, type TableStatus } from '../lib/supabase';
@@ -14,38 +14,6 @@ const loading = ref(true);
 const error = ref('');
 const subscription = ref<any>(null);
 const isConnected = ref(false);
-
-// Complete table list including missing tables with "unknown" status
-const completeTableList = computed(() => {
-  if (tables.value.length === 0) return [];
-
-  // Find the min and max table numbers
-  const tableNumbers = tables.value.map(t => t.tableNumber);
-  const minTable = Math.min(...tableNumbers);
-  const maxTable = Math.max(...tableNumbers);
-
-  // Create a complete array with all table numbers in the range
-  const result: TableStatus[] = [];
-
-  for (let i = minTable; i <= maxTable; i++) {
-    // Find the table in our data if it exists
-    const existingTable = tables.value.find(t => t.tableNumber === i);
-
-    if (existingTable) {
-      // Use existing table data
-      result.push(existingTable);
-    } else {
-      // Create a placeholder for missing table
-      result.push({
-        tableNumber: i,
-        tournamentId: props.id,
-        status: 'unknown'
-      });
-    }
-  }
-
-  return result;
-});
 
 async function fetchTables() {
   try {
@@ -144,7 +112,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <TournamentHeader :is-connected="isConnected"/>
+  <TournamentHeader :is-connected="isConnected" />
 
   <div class="z-10 px-6 py-8 mt-14 max-w-6xl mx-auto">
     <div v-if="loading" class="flex justify-center py-8">
@@ -157,7 +125,7 @@ onUnmounted(() => {
 
     <div v-else>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <Table v-for="table in completeTableList" :key="table.tableNumber" :number="table.tableNumber"
+        <Table v-for="table in tables" :key="table.tableNumber" :number="table.tableNumber"
           :initial-status="table.status" :tournament-id="props.id" />
       </div>
     </div>

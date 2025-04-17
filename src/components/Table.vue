@@ -63,9 +63,6 @@ async function cycleState() {
 
     // If no rows were updated, the status has changed
     if (!data || data.length === 0) {
-      console.warn('Optimistic locking failed: concurrent update detected');
-      updateError.value = true;
-
       // Get the current state from the server
       const { data: currentData, error: fetchError } = await supabase
         .from('table_status')
@@ -74,13 +71,22 @@ async function cycleState() {
         .eq('tournamentId', props.tournamentId)
         .single();
 
-      if (!fetchError && currentData) {
-        // Update our local state to match the server
-        state.value = currentData.status as SquareState;
-      } else {
-        // Revert to the expected state
-        state.value = expectedCurrentState;
+      if (fetchError) throw fetchError;
+
+      const currentState = currentData.status as SquareState;
+
+      // If the current state is already what we want, no problem!
+      if (currentState === newState) {
+        console.log('State already matches desired state, no update needed');
+        return;
       }
+
+      // Otherwise, it's a concurrent update
+      console.warn('Optimistic locking failed: concurrent update detected');
+      updateError.value = true;
+
+      // Update our local state to match the server
+      state.value = currentState;
 
       setTimeout(() => {
         updateError.value = false;
