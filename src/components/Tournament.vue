@@ -5,7 +5,7 @@ import TournamentHeader from './TournamentHeader.vue';
 import { supabase, type TableStatus } from '../lib/supabase';
 
 interface Props {
-  id: string; // Tournament ID from URL
+  id: string;
 }
 
 const props = defineProps<Props>();
@@ -13,6 +13,7 @@ const tables = ref<TableStatus[]>([]);
 const loading = ref(true);
 const error = ref('');
 const subscription = ref<any>(null);
+const isConnected = ref(false);
 
 // Complete table list including missing tables with "unknown" status
 const completeTableList = computed(() => {
@@ -76,6 +77,7 @@ function setupRealtimeSubscription() {
   // Clean up previous subscription if exists
   if (subscription.value) {
     supabase.removeChannel(subscription.value);
+    isConnected.value = false;
   }
 
   // Subscribe to changes on the table_status table for this tournament
@@ -117,6 +119,7 @@ function setupRealtimeSubscription() {
     )
     .subscribe((status) => {
       console.log('Realtime subscription status:', status);
+      isConnected.value = status === 'SUBSCRIBED';
     });
 }
 
@@ -135,12 +138,13 @@ watch(() => props.id, () => {
 onUnmounted(() => {
   if (subscription.value) {
     supabase.removeChannel(subscription.value);
+    isConnected.value = false;
   }
 });
 </script>
 
 <template>
-  <TournamentHeader />
+  <TournamentHeader :is-connected="isConnected"/>
 
   <div class="z-10 px-6 py-8 mt-14 max-w-6xl mx-auto">
     <div v-if="loading" class="flex justify-center py-8">

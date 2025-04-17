@@ -2,6 +2,14 @@
 // Header component for tournament view
 import { useRoute } from 'vue-router';
 
+interface Props {
+  isConnected?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isConnected: false
+});
+
 const route = useRoute();
 const tournamentId = route.params.id;
 </script>
@@ -29,7 +37,7 @@ const tournamentId = route.params.id;
     </div>
 
     <!-- Right section with icons -->
-    <div class="flex-1 flex justify-end space-x-3">
+    <div class="flex-1 flex justify-end items-center space-x-3">
       <button class="text-white hover:opacity-80">
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img"
           width="1.5em" height="1.5em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24">
@@ -54,6 +62,36 @@ const tournamentId = route.params.id;
           </path>
         </svg>
       </button>
+
+      <!-- Connection status pill -->
+      <div class="flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200"
+        :class="{ 'bg-green-600 hover:bg-green-700': props.isConnected, 'bg-red-600 hover:bg-red-700': !props.isConnected }">
+        <div class="relative mr-1.5">
+          <div class="h-2 w-2 rounded-full" :class="{ 'bg-white': true }"></div>
+          <div v-if="props.isConnected"
+            class="absolute top-0 left-0 h-2 w-2 rounded-full bg-white animate-ping opacity-75"></div>
+        </div>
+        <span>{{ props.isConnected ? 'Connected' : 'Offline' }}</span>
+      </div>
     </div>
   </header>
 </template>
+
+<style scoped>
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping {
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+</style>
