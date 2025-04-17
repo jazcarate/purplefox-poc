@@ -50,48 +50,55 @@ async function cycleState() {
   updateError.value = false;
 
   try {
-    // Attempt conditional update - assuming the row exists
+    // Single atomic operation: updates only if status matches our expected state
+    // Returns the updated row or nothing if no update happened
     const { data, error } = await supabase
       .from('table_status')
       .update({ status: newState })
       .eq('tableNumber', props.number)
       .eq('tournamentId', props.tournamentId)
-      .eq('status', expectedCurrentState) // Only update if status matches what we expect
-      .select();
+      .eq('status', expectedCurrentState)
+      .select('status')
+      .single();
 
-    if (error) throw error;
-
-    // If no rows were updated, the status has changed
-    if (!data || data.length === 0) {
-      // Get the current state from the server
-      const { data: currentData, error: fetchError } = await supabase
-        .from('table_status')
-        .select('status')
-        .eq('tableNumber', props.number)
-        .eq('tournamentId', props.tournamentId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const currentState = currentData.status as SquareState;
-
-      // If the current state is already what we want, no problem!
-      if (currentState === newState) {
-        console.log('State already matches desired state, no update needed');
-        return;
-      }
-
-      // Otherwise, it's a concurrent update
-      console.warn('Optimistic locking failed: concurrent update detected');
-      updateError.value = true;
-
-      // Update our local state to match the server
-      state.value = currentState;
-
-      setTimeout(() => {
-        updateError.value = false;
-      }, 1000);
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 means no row was updated (expected if conditions not met)
+      throw error;
     }
+
+    // If row was updated successfully, we're done
+    if (data) {
+      console.log('Update successful');
+      return;
+    }
+
+    // If we get here, the update failed - check if we already have the desired state
+    // or if there was a concurrent update
+    const { data: checkData, error: checkError } = await supabase
+      .from('table_status')
+      .select('status')
+      .eq('tableNumber', props.number)
+      .eq('tournamentId', props.tournamentId)
+      .single();
+
+    if (checkError) throw checkError;
+
+    const currentState = checkData.status as SquareState;
+
+    // If current state is already our target state, we're good
+    if (currentState === newState) {
+      console.log('State already matches desired state, no update needed');
+      return;
+    }
+
+    // Otherwise it's a concurrent update - show error and update local state
+    console.warn(`Optimistic locking failed: expected ${expectedCurrentState}, found ${currentState}`);
+    updateError.value = true;
+    state.value = currentState;
+
+    setTimeout(() => {
+      updateError.value = false;
+    }, 1000);
   } catch (err) {
     console.error('Error updating table status:', err);
     // Revert to previous state if there was an error

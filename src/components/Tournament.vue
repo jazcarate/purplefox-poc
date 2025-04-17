@@ -14,6 +14,7 @@ const loading = ref(true);
 const error = ref('');
 const subscription = ref<any>(null);
 const isConnected = ref(false);
+const ignoreWebsockets = ref(false);
 
 async function fetchTables() {
   try {
@@ -61,6 +62,12 @@ function setupRealtimeSubscription() {
       },
       (payload) => {
         console.log('Real-time update received:', payload);
+
+        // Skip updates if in debug mode
+        if (ignoreWebsockets.value) {
+          console.log('Debug mode active: Ignoring websocket update');
+          return;
+        }
 
         // Handle different events
         if (payload.eventType === 'INSERT') {
@@ -115,6 +122,18 @@ onUnmounted(() => {
   <TournamentHeader :is-connected="isConnected" />
 
   <div class="z-10 px-6 py-8 mt-14 max-w-6xl mx-auto">
+
+    <!-- Debug mode checkbox -->
+    <div class="flex justify-end">
+      <label class="inline-flex items-center cursor-pointer">
+        <input type="checkbox" v-model="ignoreWebsockets" class="sr-only peer">
+        <div
+          class="relative w-9 h-5 bg-gray-600 peer-checked:bg-red-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all">
+        </div>
+        <span class="ml-2 text-sm text-gray-800">[Debug] Realtime {{ ignoreWebsockets ? 'disabled' : 'enabled' }}</span>
+      </label>
+    </div>
+
     <div v-if="loading" class="flex justify-center py-8">
       <p>Loading tables...</p>
     </div>
