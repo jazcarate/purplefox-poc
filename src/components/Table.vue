@@ -18,10 +18,12 @@ const state = ref<SquareState>(props.initialStatus || 'unknown');
 const isUpdating = ref(false);
 const isPulsing = ref(false);
 const lastLocalUpdate = ref<number>(Date.now());
+const updateError = ref(false);
 
 async function cycleState() {
   if (!props.tournamentId || isUpdating.value) return;
 
+  const expectedCurrentState = state.value;
   let newState: SquareState;
 
   switch (state.value) {
@@ -45,26 +47,54 @@ async function cycleState() {
 
   // Set updating flag to prevent rapid clicks
   isUpdating.value = true;
+  updateError.value = false;
 
   try {
-    // Update the state in Supabase
-    const { error } = await supabase
+    // Attempt conditional update - assuming the row exists
+    const { data, error } = await supabase
       .from('table_status')
-      .upsert({
-        tableNumber: props.number,
-        tournamentId: props.tournamentId,
-        status: newState
-      });
+      .update({ status: newState })
+      .eq('tableNumber', props.number)
+      .eq('tournamentId', props.tournamentId)
+      .eq('status', expectedCurrentState) // Only update if status matches what we expect
+      .select();
 
-    if (error) {
-      console.error('Error updating table status:', error);
-      // Revert to previous state if there was an error
-      state.value = props.initialStatus || 'unknown';
+    if (error) throw error;
+
+    // If no rows were updated, the status has changed
+    if (!data || data.length === 0) {
+      console.warn('Optimistic locking failed: concurrent update detected');
+      updateError.value = true;
+
+      // Get the current state from the server
+      const { data: currentData, error: fetchError } = await supabase
+        .from('table_status')
+        .select('status')
+        .eq('tableNumber', props.number)
+        .eq('tournamentId', props.tournamentId)
+        .single();
+
+      if (!fetchError && currentData) {
+        // Update our local state to match the server
+        state.value = currentData.status as SquareState;
+      } else {
+        // Revert to the expected state
+        state.value = expectedCurrentState;
+      }
+
+      setTimeout(() => {
+        updateError.value = false;
+      }, 1000);
     }
   } catch (err) {
     console.error('Error updating table status:', err);
     // Revert to previous state if there was an error
-    state.value = props.initialStatus || 'unknown';
+    state.value = expectedCurrentState;
+    updateError.value = true;
+
+    setTimeout(() => {
+      updateError.value = false;
+    }, 1000);
   } finally {
     isUpdating.value = false;
   }
@@ -125,12 +155,20 @@ onMounted(() => {
     </span>
 
     <!-- Loading indicator -->
-    <div v-if="isUpdating" class="absolute inset-0 flex items-center justify-center">
-      <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <div v-if="isUpdating && !updateError" class="absolute top-1 right-1">
+      <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor"
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
         </path>
+      </svg>
+    </div>
+
+    <!-- Error indicator -->
+    <div v-if="updateError" class="absolute top-1 right-1">
+      <svg class="h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+        stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </div>
   </div>
@@ -149,7 +187,6 @@ onMounted(() => {
   100% {
     box-shadow: 0 0 0 0;
   }
-
 }
 
 .pulse-highlight {
