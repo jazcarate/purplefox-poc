@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { supabase } from '../lib/supabase';
 
 interface Props {
@@ -16,6 +16,8 @@ type SquareState = 'unknown' | 'playing' | 'covered' | 'done';
 // Initialize with the provided status or 'unknown' by default
 const state = ref<SquareState>(props.initialStatus || 'unknown');
 const isUpdating = ref(false);
+const isPulsing = ref(false);
+const lastLocalUpdate = ref<number>(Date.now());
 
 async function cycleState() {
   if (!props.tournamentId || isUpdating.value) return;
@@ -39,6 +41,7 @@ async function cycleState() {
 
   // Update local state immediately for responsive UI
   state.value = newState;
+  lastLocalUpdate.value = Date.now();
 
   // Set updating flag to prevent rapid clicks
   isUpdating.value = true;
@@ -81,6 +84,27 @@ function getBackgroundColor(): string {
   return 'bg-white';
 }
 
+// Watch for changes to state that might come from websockets
+watch(
+  () => props.initialStatus,
+  (newStatus, oldStatus) => {
+    // Only trigger pulse effect if:
+    // 1. The status actually changed
+    // 2. It's not a local update (check time difference > 1s)
+    if (newStatus && newStatus !== oldStatus && Date.now() - lastLocalUpdate.value > 1000) {
+      state.value = newStatus;
+      triggerPulse();
+    }
+  }
+);
+
+function triggerPulse() {
+  isPulsing.value = true;
+  setTimeout(() => {
+    isPulsing.value = false;
+  }, 500);
+}
+
 // Set initial state based on props
 onMounted(() => {
   if (props.initialStatus) {
@@ -91,7 +115,11 @@ onMounted(() => {
 
 <template>
   <div class="flex p-2 rounded cursor-pointer select-none flex-col items-center justify-center text-black h-20 relative"
-    :class="[getBackgroundColor(), isUpdating ? 'opacity-70' : '']" @click="cycleState">
+    :class="[
+      getBackgroundColor(),
+      isUpdating ? 'opacity-70' : '',
+      isPulsing ? 'pulse-highlight' : ''
+    ]" @click="cycleState">
     <span class="text-lg font-medium" :class="state !== 'unknown' ? 'text-white' : 'text-black'">
       {{ number }}
     </span>
@@ -107,3 +135,24 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes pulse-border {
+  0% {
+    box-shadow: 0 0 0 0;
+  }
+
+  70% {
+    box-shadow: 0 0 0 3px;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0;
+  }
+
+}
+
+.pulse-highlight {
+  animation: pulse-border 0.5s;
+}
+</style>
