@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { supabase } from '../lib/supabase';
 import { type TableStatusStatus } from '../lib/supabase';
 
@@ -15,6 +15,7 @@ const state = ref<TableStatusStatus>(props.initialStatus);
 const isUpdating = ref(false);
 const isPulsing = ref(false);
 const lastLocalUpdate = ref<number>(Date.now());
+const pulseTimeout = ref<number | null>(null);
 const updateError = ref(false);
 
 async function cycleState() {
@@ -139,9 +140,19 @@ watch(
 );
 
 function triggerPulse() {
+  // Cancel any existing pulse animation
+  if (pulseTimeout.value !== null) {
+    clearTimeout(pulseTimeout.value);
+    pulseTimeout.value = null;
+  }
+
+  // Start new pulse animation
   isPulsing.value = true;
-  setTimeout(() => {
+
+  // Set timeout to end pulse animation
+  pulseTimeout.value = window.setTimeout(() => {
     isPulsing.value = false;
+    pulseTimeout.value = null;
   }, 500);
 }
 
