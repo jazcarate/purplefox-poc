@@ -37,7 +37,8 @@ Websocket connection is often unreliable in venues. And the PurpleFox user has n
 There is also no resync mechanism when Websockets gets back online. Therefore updates can be missed.
 
 **Suggestion**: A badge of "connected".
-Caveat: Supabase's realtime has a 30s heartbeat. This is not good enough. ????
+Bonus: Show how long since the last update; let the human decide.
+Caveat: Supabase's realtime has a 30s heartbeat. This is not good enough. 
 
 ### Locking (or lack thereof)
 Sometimes the same table is updated from different devices. The current way to handle it is to override the last insert; but that might not always be the most up to date (a slower connection can start earlier, but arrive later). 

@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import ConnectedBadge from './ConnectedBadge.vue';
+
 interface Props {
   id: string;
   isConnected: boolean;
+  lastUpdateTimestamp: number;
 }
 
 const props = defineProps<Props>();
@@ -57,16 +60,8 @@ const props = defineProps<Props>();
         </svg>
       </button>
 
-      <!-- Connection status pill -->
-      <div class="flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200"
-        :class="{ 'bg-green-600 hover:bg-green-700': props.isConnected, 'bg-red-600 hover:bg-red-700': !props.isConnected }">
-        <div class="relative mr-1.5">
-          <div class="h-2 w-2 rounded-full" :class="{ 'bg-white': true }"></div>
-          <div v-if="props.isConnected"
-            class="absolute top-0 left-0 h-2 w-2 rounded-full bg-white animate-ping opacity-75"></div>
-        </div>
-        <span>{{ props.isConnected ? 'Connected' : 'Offline' }}</span>
-      </div>
+      <!-- Connection status with time since last update -->
+      <ConnectedBadge :is-connected="props.isConnected" :last-update-timestamp="props.lastUpdateTimestamp" />
     </div>
   </header>
 </template>

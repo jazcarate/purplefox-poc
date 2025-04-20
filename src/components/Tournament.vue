@@ -14,6 +14,7 @@ const error = ref('');
 const subscription = ref<any>(null);
 const isConnected = ref(false);
 const ignoreWebsockets = ref(false);
+const lastUpdateTimestamp = ref(Date.now());
 
 const tables = ref<TableStatus[]>([]);
 
@@ -31,6 +32,7 @@ async function fetchTables() {
     if (queryError) throw queryError;
 
     tables.value = data || [];
+    lastUpdateTimestamp.value = Date.now();
 
     if (tables.value.length === 0) {
       error.value = 'No tables found for this tournament';
@@ -77,6 +79,7 @@ function setupRealtimeSubscription() {
 
           if (index !== -1) {
             tables.value[index] = payload.new as TableStatus;
+            lastUpdateTimestamp.value = Date.now();
           } else {
             console.error('Table not found:', payload.new);
           }
@@ -111,7 +114,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <TournamentHeader :id="id" :is-connected="isConnected" />
+  <TournamentHeader :id="id" :is-connected="isConnected" :last-update-timestamp="lastUpdateTimestamp" />
 
   <div class="z-10 px-6 py-8 mt-14 max-w-6xl mx-auto">
 
