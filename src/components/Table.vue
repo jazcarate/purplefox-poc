@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
+import { useDebounceFn } from '@vueuse/core';
 import { supabase } from '../lib/supabase';
 import { type TableStatusStatus } from '../lib/supabase';
 
@@ -11,68 +12,75 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const state = ref<TableStatusStatus>(props.initialStatus);
+// The starting state is our best knowledge of what's in the database
+const startingState = ref<TableStatusStatus>(props.initialStatus);
+
+// The UI state is what we're showing (optimistic updates)
+const uiState = ref<TableStatusStatus>(props.initialStatus);
+
+// Tracking state
 const isUpdating = ref(false);
 const isPulsing = ref(false);
 const lastLocalUpdate = ref<number>(Date.now());
 const pulseTimeout = ref<number | null>(null);
-const updateError = ref(false);
+const hasError = ref(false);
 
-async function cycleState() {
-  if (!props.tournamentId || isUpdating.value) return;
+// Computed state for display
+const displayState = computed(() => {
+  return hasError.value ? startingState.value : uiState.value;
+});
 
-  const expectedCurrentState = state.value;
-  let newState: TableStatusStatus;
-
-  switch (state.value) {
-    case 'unknown':
-      newState = 'playing';
-      break;
-    case 'playing':
-      newState = 'covered';
-      break;
-    case 'covered':
-      newState = 'done';
-      break;
-    case 'done':
-      newState = 'playing';
-      break;
+// Get next state in the cycle
+function getNextState(currentState: TableStatusStatus): TableStatusStatus {
+  switch (currentState) {
+    case 'unknown': return 'playing';
+    case 'playing': return 'covered';
+    case 'covered': return 'done';
+    case 'done': return 'playing';
   }
+}
 
-  // Update local state immediately for responsive UI
-  state.value = newState;
+// Handle user clicking the table
+function cycleState() {
+  // Calculate the next state based on current UI state
+  const nextState = getNextState(uiState.value);
+
+  // Update UI immediately (optimistic)
+  uiState.value = nextState;
   lastLocalUpdate.value = Date.now();
 
-  // Set updating flag to prevent rapid clicks
+  // Show loading state
   isUpdating.value = true;
-  updateError.value = false;
 
+  // Schedule the actual update with debounce
+  debouncedUpdate();
+}
+
+// The actual update operation, debounced to prevent too many calls
+const debouncedUpdate = useDebounceFn(async () => {
   try {
-    // Single atomic operation: updates only if status matches our expected state
-    // Returns the updated row or nothing if no update happened
+    hasError.value = false;
+
+    // Try to update from starting state to UI state with optimistic locking
     const { data, error } = await supabase
       .from('table_status')
-      .update({ status: newState })
+      .update({ status: uiState.value })
       .eq('tableNumber', props.number)
       .eq('tournamentId', props.tournamentId)
-      .eq('status', expectedCurrentState)
-      .select('status')
-      .single();
+      .eq('status', startingState.value)
+      .select();
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 means no row was updated (expected if conditions not met)
-      throw error;
-    }
+    if (error) throw error;
 
-    // If row was updated successfully, we're done
-    if (data) {
-      console.log('Update successful');
+    // Check if update succeeded (matched our expected state)
+    if (data && data.length > 0) {
+      // Success - our UI state is now the confirmed state
+      startingState.value = uiState.value;
       return;
     }
 
-    // If we get here, the update failed - check if we already have the desired state
-    // or if there was a concurrent update
-    const { data: checkData, error: checkError } = await supabase
+    // If update failed, check the current state
+    const { data: currentData, error: checkError } = await supabase
       .from('table_status')
       .select('status')
       .eq('tableNumber', props.number)
@@ -81,96 +89,96 @@ async function cycleState() {
 
     if (checkError) throw checkError;
 
-    const currentState = checkData.status as TableStatusStatus;
+    const actualState = currentData.status as TableStatusStatus;
 
-    // If current state is already our target state, we're good
-    if (currentState === newState) {
-      console.log('State already matches desired state, no update needed');
+    // Update our knowledge of the starting state
+    startingState.value = actualState;
+
+    // If the current state already matches our desired state, that's fine
+    if (actualState === uiState.value) {
+      console.log('State already updated to the desired state');
       return;
     }
 
-    // Otherwise it's a concurrent update - show error and update local state
-    console.warn(`Optimistic locking failed: expected ${expectedCurrentState}, found ${currentState}`);
-    updateError.value = true;
-    state.value = currentState;
+    // Otherwise, show error and revert UI after a delay
+    console.warn(`Optimistic locking failed: expected ${startingState.value}, got ${actualState}`);
+    hasError.value = true;
 
     setTimeout(() => {
-      updateError.value = false;
-    }, 1000);
+      uiState.value = startingState.value;
+      hasError.value = false;
+    }, 1500);
+
   } catch (err) {
     console.error('Error updating table status:', err);
-    // Revert to previous state if there was an error
-    state.value = expectedCurrentState;
-    updateError.value = true;
+    hasError.value = true;
 
+    // Revert UI to match confirmed state
+    uiState.value = startingState.value;
     setTimeout(() => {
-      updateError.value = false;
-    }, 1000);
+      hasError.value = false;
+    }, 1500);
   } finally {
     isUpdating.value = false;
   }
-}
+}, 300);
 
+// Get the appropriate background color based on state
 function getBackgroundColor(): string {
-  if (state.value !== 'unknown') {
-    switch (state.value) {
-      case 'playing':
-        return 'bg-red-500';
-      case 'covered':
-        return 'bg-yellow-500';
-      case 'done':
-        return 'bg-green-500';
-    }
+  switch (displayState.value) {
+    case 'playing': return 'bg-red-500';
+    case 'covered': return 'bg-yellow-500';
+    case 'done': return 'bg-green-500';
+    default: return 'bg-white';
   }
-  return 'bg-white';
 }
 
-// Watch for changes to state that might come from websockets
+// Handle websocket updates
 watch(
   () => props.initialStatus,
   (newStatus, oldStatus) => {
-    // Only trigger pulse effect if:
-    // 1. The status actually changed
-    // 2. It's not a local update (check time difference > 1s)
+    // Only process remote updates (not our local changes)
     if (newStatus && newStatus !== oldStatus && Date.now() - lastLocalUpdate.value > 1000) {
-      state.value = newStatus;
+      // Update both states to match the server
+      startingState.value = newStatus;
+      uiState.value = newStatus;
+      hasError.value = false;
       triggerPulse();
     }
   }
 );
 
+// Trigger the pulse animation
 function triggerPulse() {
-  // Cancel any existing pulse animation
+  // Cancel any existing animation
   if (pulseTimeout.value !== null) {
     clearTimeout(pulseTimeout.value);
     pulseTimeout.value = null;
   }
 
-  // Start new pulse animation
+  // Start new animation
   isPulsing.value = true;
 
-  // Set timeout to end pulse animation
+  // Set timeout to end animation
   pulseTimeout.value = window.setTimeout(() => {
     isPulsing.value = false;
     pulseTimeout.value = null;
   }, 500);
 }
-
 </script>
 
 <template>
   <div class="flex p-2 rounded cursor-pointer select-none flex-col items-center justify-center text-black h-20 relative"
     :class="[
       getBackgroundColor(),
-      isUpdating ? 'opacity-70' : '',
       isPulsing ? 'pulse-highlight' : ''
     ]" @click="cycleState">
-    <span class="text-lg font-medium" :class="state !== 'unknown' ? 'text-white' : 'text-black'">
-      {{ number }}
+    <span class="text-lg font-medium" :class="displayState !== 'unknown' ? 'text-white' : 'text-black'">
+      {{ props.number }}
     </span>
 
     <!-- Loading indicator -->
-    <div v-if="isUpdating && !updateError" class="absolute top-1 right-1">
+    <div v-if="isUpdating && !hasError" class="absolute top-1 right-1">
       <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor"
@@ -180,7 +188,7 @@ function triggerPulse() {
     </div>
 
     <!-- Error indicator -->
-    <div v-if="updateError" class="absolute top-1 right-1">
+    <div v-if="hasError" class="absolute top-1 right-1">
       <svg class="h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
         stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
