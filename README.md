@@ -15,24 +15,24 @@ npm run dev
 npm run build
 ```
 
-## Gripes
-PurpleFox is an amazing tool. But I have a few ~~issues~~ opportunities of improvement. 
-I believe running code is a good tool for communication, but I will use this space to add some context to my reasoning.
+## Improvement Opportunities
+PurpleFox is an amazing tool. However, I have identified several opportunities for improvement. 
+I believe running code is a good tool for communication, so I've implemented these improvements in this POC while providing context for my reasoning below.
 
 In order of importance:
 
-### Local first
-When slow internet, clicking a table number does _nothing_ until the event is proceed. And there is no indication that something is happening. This is both frustrating, and leads to:
+### Local-First Approach
+When experiencing slow internet, clicking a table number does _nothing_ until the event is processed by the server. There is no indication that something is happening. This creates frustration:
 
-1. I want to go from Unknown -> Done: Tap. **Wait**. Tap. **Wait**. Tap.
-1. I want to go from Unknown -> Playing: Tap. _Nothing happens_ so I tap again. The table now is in covered.
+1. If I want to cycle two states, I need to tap, *wait*, tap again.
+2. Tapping multiple times is unreliable. It depends on my connection strength what the final state is.
 
-**Suggestion**: Update the UI instantly and add a "loading" indicator.
+**Implemented Solution**: The UI updates instantly with optimistic updates and displays a loading indicator while the server request is in progress. If the update fails, the UI reverts to the confirmed state with an error indicator.
 
-### Locking (or lack thereof)
-Sometimes the same table is updated from different devices. The current way to handle it is to override the last insert; but that might not always be the most up to date (a slower connection can start earlier, but arrive later). 
+### Concurrent Update Handling
+Sometimes the same table is updated from different devices simultaneously. The current approach simply overrides with the last update received, but this isn't always correct because a slower connection might have started its update earlier but arrive later.
 
-**Suggestion**: Implement a "optimistic locking" on tables to manage concurrent updates. 
+**Implemented Solution**: Applied optimistic locking on table updates to manage concurrent modifications correctly.
 
 ```SQL
 UPDATE table_status 
@@ -40,29 +40,33 @@ SET status = {{next}}
 WHERE tableNumber = 40
   AND status = {{previous}}
 ```
-Trying to recreate a [Compare-and-swap](https://en.wikipedia.org/wiki/Compare-and-swap) technique.
 
-When the update fails, it might be because someone else already did the same update. In this case, ignore the fail. Otherwise, rollback the update and one of the parties will see a table with a error.
+This implementation recreates a [Compare-and-swap](https://en.wikipedia.org/wiki/Compare-and-swap) technique to ensure data consistency.
 
-### Out of sync
-Websocket connection is often unreliable in venues. And the PurpleFox user has no indication if what they are seeing is synced or not. This leads to systematic refresh; often when it is not needed.
-There is also no resync mechanism when Websockets gets back online. Therefore updates can be missed.
+When an update fails, the system checks if someone else has already made the desired change. If so, it accepts the existing state. Otherwise, it shows an error and reverts the UI, allowing the user to try again with the current state information.
 
-**Suggestion**: A badge of "connected".
-Bonus: Show how long since the last update; let the human decide.
-Caveat: Supabase's realtime has a 30s heartbeat. This is not good enough. 
+### Synchronization Status Visibility
+Websocket connections are often unreliable in tournament venues. Users have no indication if what they're seeing is synchronized with the server or not. This leads to unnecessary manual refreshes.
 
-### End of Round Lead signals
-When I'm assigning people to go check table status, or cover a table, I have no indication when those things are done; other than looking closely to my phone. But I can't because I'm also assigning people to do the same job in different areas.
+**Implemented Solution**: Added a status badge showing:
+- Connection status (connected/disconnected)
+- Time since the last update in a human-readable format
 
-**Suggestion**: Add a subtle pulsating effect when an update comes via the Websocket. You would be surprised how well the human brain performs to periphery signals
+Note: There's no mechanism to recover missed updates when websockets reconnect after being temporarily offline.
 
-### Double-Tap zoom
-It is annoying when I'm double tapping, my phone tries to zoom in.
+### Visual Update Notifications
+When running End of Round, assigning to check table status or cover tables, it's difficult to monitor when these actions are completed while simultaneously managing multiple tasks.
 
-**Suggestion**: Disable the feature via CSS
+**Implemented Solution**: Added a subtle pulsating effect when an update comes via the websocket. This leverages the human brain's sensitivity to peripheral visual signals, allowing tournament directors to notice changes without having to actively monitor each table.
+
+### Touch Interface Improvements
+Double-tapping on mobile devices often triggers unwanted zoom actions, interfering with the intended table status updates.
+
+**Implemented Solution**: Disabled this behavior with appropriate CSS:
 ```css
 .tournament {
     touch-action: manipulation;
 }
 ```
+
+This prevents the browser's default double-tap zoom while maintaining other touch gestures.
