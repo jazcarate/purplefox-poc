@@ -58,7 +58,10 @@ function cycleState() {
 
 // The actual update operation, debounced to prevent too many calls
 const debouncedUpdate = useDebounceFn(async () => {
+  console.log('updating table', props.number, 'from', startingState.value, 'to', uiState.value);
+  const originalState = startingState.value;
   try {
+    startingState.value = uiState.value; // Very optimistic
     hasError.value = false;
 
     // Try to update from starting state to UI state with optimistic locking
@@ -67,15 +70,14 @@ const debouncedUpdate = useDebounceFn(async () => {
       .update({ status: uiState.value })
       .eq('tableNumber', props.number)
       .eq('tournamentId', props.tournamentId)
-      .eq('status', startingState.value)
+      .eq('status', originalState)
       .select();
 
     if (error) throw error;
 
     // Check if update succeeded (matched our expected state)
     if (data && data.length > 0) {
-      // Success - our UI state is now the confirmed state
-      startingState.value = uiState.value;
+      console.log('update succeeded');
       return;
     }
 
@@ -101,27 +103,27 @@ const debouncedUpdate = useDebounceFn(async () => {
     }
 
     // Otherwise, show error and revert UI after a delay
-    console.warn(`Optimistic locking failed: expected ${startingState.value}, got ${actualState}`);
+    console.warn(`Optimistic locking failed: expected ${originalState}, got ${actualState}`);
     hasError.value = true;
+    uiState.value = actualState;
 
     setTimeout(() => {
-      uiState.value = startingState.value;
       hasError.value = false;
-    }, 1500);
+    }, 3000);
 
   } catch (err) {
     console.error('Error updating table status:', err);
     hasError.value = true;
 
     // Revert UI to match confirmed state
-    uiState.value = startingState.value;
+    uiState.value = originalState;
     setTimeout(() => {
       hasError.value = false;
-    }, 1500);
+    }, 3000);
   } finally {
     isUpdating.value = false;
   }
-}, 300);
+}, 500);
 
 // Get the appropriate background color based on state
 function getBackgroundColor(): string {
