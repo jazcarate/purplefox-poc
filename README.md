@@ -29,6 +29,8 @@ When experiencing slow internet, clicking a table number does _nothing_ until th
 
 **Implemented Solution**: The UI updates instantly with optimistic updates and displays a loading indicator while the server request is in progress. If the update fails, the UI reverts to the confirmed state with an error indicator.
 
+![instant update](/docs/loading-widget.gif)
+
 ### Concurrent Update Handling
 Sometimes the same table is updated from different devices simultaneously. The current approach simply overrides with the last update received, but this isn't always correct because a slower connection might have started its update earlier but arrive later.
 
@@ -45,6 +47,10 @@ This implementation recreates a [Compare-and-swap](https://en.wikipedia.org/wiki
 
 When an update fails, the system checks if someone else has already made the desired change. If so, it accepts the existing state. Otherwise, it shows an error and reverts the UI, allowing the user to try again with the current state information.
 
+![concurrent](/docs/concurrent.gif)
+
+> The video is a bit hard to parse. It tries to show two applications side by side. The first one clicks twice (going from Green to Yellow). The second one has not recived any updates yet, and clicks once (going from Green to Red). When consolidating, the second one shows a `x` and goes to Yellow, as it's precondition (starting from Green) was not met.
+
 ### Synchronization Status Visibility
 Websocket connections are often unreliable in tournament venues. Users have no indication if what they're seeing is synchronized with the server or not. This leads to unnecessary manual refreshes.
 
@@ -52,12 +58,16 @@ Websocket connections are often unreliable in tournament venues. Users have no i
 - Connection status (connected/disconnected)
 - Time since the last update in a human-readable format
 
+![sync status](/docs/sync-status.png)
+
 Note: There's no mechanism to recover missed updates when websockets reconnect after being temporarily offline.
 
 ### Visual Update Notifications
 When running End of Round, assigning to check table status or cover tables, it's difficult to monitor when these actions are completed while simultaneously managing multiple tasks.
 
 **Implemented Solution**: Added a subtle pulsating effect when an update comes via the websocket. This leverages the human brain's sensitivity to peripheral visual signals, allowing tournament directors to notice changes without having to actively monitor each table.
+
+![highlight](/docs/highlight.gif)
 
 ### Touch Interface Improvements
 Double-tapping on mobile devices often triggers unwanted zoom actions, interfering with the intended table status updates.
